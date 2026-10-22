@@ -142,6 +142,10 @@ curl http://localhost:8080/status
 
 `.\mvnw` (no extension) is the equivalent script for macOS and Linux.
 
+If you already have Maven installed, the equivalent commands are `mvn spring-boot:run`,
+`mvn clean package` and `mvn test`. The wrapper is only a convenience that pins the Maven
+version and verifies the download against a checksum.
+
 ---
 
 ## Configuration
