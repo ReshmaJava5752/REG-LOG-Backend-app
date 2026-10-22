@@ -1,7 +1,65 @@
+### Build output ###
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+### Secrets and local environment files ###
+# Real environment files must never be committed. Only the placeholder template is tracked.
+.env
+.env.*
+*.env
+!.env.example
+*.local
+*.local.*
+!.env.example
+
+### Credentials, keys and certificates ###
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+*.crt
+*.cer
+*.der
+*.asc
+*.gpg
+id_rsa
+id_ed25519
+credentials.json
+secrets.json
+secrets.yaml
+secrets.yml
+
+### Database dumps and backups ###
+# These can contain real user records, password hashes and e-mail addresses.
+# The schema-only scripts under database/ are tracked on purpose.
+*.dump
+*.sql.gz
+*.sql.bak
+*backup*.sql
+*_dump*.sql
+*_backup_*.sql
+database_backup/
+data/
+
+### Logs and local runtime output ###
+*.log
+*.log.*
+logs/
+log/
+
+### Test and coverage output ###
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+surefire-reports/
+hs_err_pid*
+replay_pid*
 
 ### STS ###
 .apt_generated
@@ -27,9 +85,14 @@ target/
 /nb-configuration.xml
 /pom.xml.tag*
 
-### Secrets & Local Env ###
-.env
-.env.*
-*.env
-*.log
-!.env.example
+### Editor directories and files ###
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini

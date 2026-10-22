@@ -1,0 +1,476 @@
+{
+  "info": {
+    "_postman_id": "b6f4c2a8-3d51-4c7e-9a10-5e2f8c1d7b64",
+    "name": "Registration & Login System",
+    "description": "REST API collection for the RegistrationLoginProject backend (Spring Boot 3.4.2, default port 8080).\n\nImport `RegistrationLogin.postman_environment.json` after importing this collection and select it as the active environment.\n\nRecommended request order:\n\n1. **Health Check** - confirms the backend is running.\n2. **Register User** - creates the account used by the rest of the flow.\n3. **Login** - issues a JWT and stores it in the `token` environment variable automatically.\n4. **Get Profile** / **Change Password** - use the stored token via the collection-level Bearer auth.\n5. **Password Recovery** - Forgot Password -> paste the 6-digit OTP into `otpCode` -> Verify OTP (stores `resetToken`) -> Reset Password.\n\nNotes:\n- The OTP is delivered **by e-mail only** and is never returned by the API, so `otpCode` must be copied manually from the inbox. See `postman/README.md`.\n- The reset code is stored as an HMAC fingerprint, never in plain text.\n- Every request is also reachable on the trainer paths (`/api/reg`, `/api/login`) and the legacy paths (`/api/auth/...`); this collection uses the `/api/auth` prefix.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level pre-request script.",
+          "// Guarantees a baseUrl even if the environment was never selected.",
+          "if (!pm.environment.get('baseUrl')) {",
+          "    pm.environment.set('baseUrl', 'http://localhost:8080');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "description": "Endpoints that do not require an authentication token.",
+      "item": [
+        {
+          "name": "Health Check (GET /status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["status"]
+            },
+            "description": "Backend health check. Public route, no token required.\n\nAlso available at `/api/status` and `/api/auth/status`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User (POST /register)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{fullName}}\",\n  \"email\": \"{{email}}\",\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"password\": \"{{password}}\",\n  \"confirmPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Creates a new user.\n\n- `fullName`: 3-100 characters.\n- `email`: valid e-mail, must be unique.\n- `mobileNumber`: exactly 10 digits, must be unique.\n- `password` / `confirmPassword`: must match and satisfy the complexity policy (min 8 characters, one uppercase, one lowercase, one digit, one special character `@$!%*?&#`).\n\nAlso available at `/register`, `/api/reg` and `/api/auth/register`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('the registered e-mail is echoed back', function () {",
+                  "    pm.expect(pm.response.json().data.email).to.eql(pm.environment.get('email'));",
+                  "});",
+                  "",
+                  "pm.test('createdAt and updatedAt are present', function () {",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data).to.have.property('createdAt');",
+                  "    pm.expect(data).to.have.property('updatedAt');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (POST /login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticates with the registered **e-mail** *or* **10-digit mobile number**.\n\nSet `identifier` to the 10-digit mobile number to log in with the mobile number instead.\n\nOn success the JWT is written to the `token` environment variable and used by the protected requests."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('a JWT was issued', function () {",
+                  "    pm.expect(body.data.token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('token type is Bearer', function () {",
+                  "    pm.expect(body.data.tokenType).to.eql('Bearer');",
+                  "});",
+                  "",
+                  "// Store the token so the protected requests can use it.",
+                  "pm.environment.set('token', body.data.token);",
+                  "pm.environment.set('tokenType', body.data.tokenType);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (POST /logout)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Optional. When supplied, the current JWT is revoked."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Revokes the current JWT token.\n\nThe request is allowed without a token, but the token is only revoked when the `Authorization` header is present. The session record in the database is marked as revoked, so the token stays rejected even after the backend restarts. After a successful logout the stored `token` is cleared by the test script."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "// The server has revoked the token - clear the local copy.",
+                  "pm.environment.set('token', '');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authenticated",
+      "description": "Protected endpoints. They use the collection-level Bearer authentication, so run **Login** first.",
+      "item": [
+        {
+          "name": "Get Profile (GET /profile)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            },
+            "description": "Returns the profile of the authenticated user.\n\nRequires the `Authorization: Bearer <token>` header. Responds with **401 Unauthorized** when the token is missing, expired or revoked.\n\nThe profile is always read from the authenticated token - there is no query parameter that could be used to look up somebody else's account.\n\nAlso available at `/profile` and `/api/profile`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('the profile matches the logged-in account', function () {",
+                  "    pm.expect(pm.response.json().data.email).to.eql(pm.environment.get('email'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Password (PUT /change-password)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "change-password"]
+            },
+            "description": "Changes the password of the authenticated user.\n\nRequires the `Authorization: Bearer <token>` header. `newPassword` must differ from `currentPassword`, must match `confirmPassword`, and must satisfy the complexity policy.\n\n**Note:** changing the password revokes all active tokens for that account, so run **Login** again afterwards.\n\nAlso available at `/change-password` and `/api/change-password`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Password Recovery",
+      "description": "The OTP-based password recovery flow.",
+      "item": [
+        {
+          "name": "Forgot Password (POST /forgot-password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "forgot-password"]
+            },
+            "description": "Requests a 6-digit password reset OTP.\n\n`identifier` may be the e-mail address **or** the 10-digit mobile number. The OTP is always delivered to the **e-mail address on the account** - this application has no SMS delivery.\n\nThe response is intentionally identical whether or not the account exists, so it cannot be used to enumerate users. The OTP is valid for 5 minutes and allows 3 verification attempts.\n\nRate limited to 5 requests per account per 15 minutes; a breach is answered with HTTP 429 and a `Retry-After` header.\n\nTo complete this flow, copy the 6-digit code from the inbox into the `otpCode` environment variable."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('the OTP is never returned by the API', function () {",
+                  "    pm.expect(pm.response.text()).to.not.include('\"otpCode\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP (POST /verify-otp)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{email}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-otp"]
+            },
+            "description": "Verifies the 6-digit OTP and returns a single-use reset token.\n\n**Before running this request**, paste the code from the inbox into the `otpCode` environment variable (or edit the request body directly).\n\nOn success the reset token is written to the `resetToken` environment variable automatically. The token is invalidated as soon as it is used.\n\nRate limited to 10 verification attempts per account per 15 minutes; a breach is answered with HTTP 429 and a `Retry-After` header.\n\nThe answers are identical for a registered and for an unregistered address, so this endpoint cannot be used to find out which addresses exist."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('a reset token was issued', function () {",
+                  "    pm.expect(body.data.resetToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "// Store the reset token so the Reset Password request can use it.",
+                  "pm.environment.set('resetToken', body.data.resetToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password (POST /reset-password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{email}}\",\n  \"resetToken\": \"{{resetToken}}\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "reset-password"]
+            },
+            "description": "Sets a new password using the reset token obtained from **Verify OTP**.\n\n`resetToken` is single-use and expires shortly after it was issued. `newPassword` must match `confirmPassword` and satisfy the complexity policy.\n\nOn success all active tokens for the account are revoked, so run **Login** again afterwards."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('success flag is true', function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "// The reset token is single-use - clear it.",
+                  "pm.environment.set('resetToken', '');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
